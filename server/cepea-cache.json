@@ -1,27 +1,27 @@
 {
- "atualizadoEm": "2026-07-31T13:52:28.430Z",
+ "atualizadoEm": "2026-07-31T22:00:27.574Z",
  "indicadores": {
   "cepea-hidratado-sp": {
-   "valor": 2.0764,
-   "data": "24/07/2026",
+   "valor": 2.0454,
+   "data": "31/07/2026",
    "produto": "Etanol Hidratado - SP litro",
    "unidade": "BRL_LITRO"
   },
   "cepea-anidro-sp": {
-   "valor": 2.3786,
-   "data": "24/07/2026",
+   "valor": 2.3141,
+   "data": "31/07/2026",
    "produto": "Etanol Anidro - SP litro",
    "unidade": "BRL_LITRO"
   },
   "cepea-hidratado-go": {
-   "valor": 2.338,
-   "data": "24/07/2026",
+   "valor": 2.2509,
+   "data": "31/07/2026",
    "produto": "Etanol Hidratado - GO litro",
    "unidade": "BRL_LITRO"
   },
   "cepea-hidratado-mt": {
-   "valor": 2624.74,
-   "data": "24/07/2026",
+   "valor": 2582.61,
+   "data": "31/07/2026",
    "produto": "Etanol Hidratado - MT m3",
    "unidade": "BRL_M3"
   },
@@ -56,8 +56,8 @@
    "unidade": "BRL_LITRO"
   },
   "cepea-hidratado-pb": {
-   "valor": 2.9729,
-   "data": "24/07/2026",
+   "valor": 2.9558,
+   "data": "31/07/2026",
    "produto": "Etanol Hidratado - PB litro",
    "unidade": "BRL_LITRO"
   },
@@ -68,14 +68,14 @@
    "unidade": "BRL_LITRO"
   },
   "cepea-acucar-sp": {
-   "valor": 92.4,
-   "data": "30/07/2026",
+   "valor": 91.5,
+   "data": "31/07/2026",
    "produto": "Açúcar - SP sc de 50kg",
    "unidade": "BRL_SACA50"
   },
   "cepea-acucar-santos": {
-   "valor": 105.06,
-   "data": "30/07/2026",
+   "valor": 106.29,
+   "data": "31/07/2026",
    "produto": "Açúcar - Santos sc de 50kg",
    "unidade": "BRL_SACA50"
   },
@@ -100,16 +100,20 @@
  },
  "historico": {
   "cepea-hidratado-sp": {
-   "2026-07-24": 2.0764
+   "2026-07-24": 2.0764,
+   "2026-07-31": 2.0454
   },
   "cepea-anidro-sp": {
-   "2026-07-24": 2.3786
+   "2026-07-24": 2.3786,
+   "2026-07-31": 2.3141
   },
   "cepea-hidratado-go": {
-   "2026-07-24": 2.338
+   "2026-07-24": 2.338,
+   "2026-07-31": 2.2509
   },
   "cepea-hidratado-mt": {
-   "2026-07-24": 2624.74
+   "2026-07-24": 2624.74,
+   "2026-07-31": 2582.61
   },
   "cepea-anidro-mt": {
    "2026-05-22": 2685.79
@@ -127,16 +131,19 @@
    "2026-05-15": 3.0634
   },
   "cepea-hidratado-pb": {
-   "2026-07-24": 2.9729
+   "2026-07-24": 2.9729,
+   "2026-07-31": 2.9558
   },
   "cepea-anidro-pb": {
    "2026-07-24": 3.0686
   },
   "cepea-acucar-sp": {
-   "2026-07-30": 92.4
+   "2026-07-30": 92.4,
+   "2026-07-31": 91.5
   },
   "cepea-acucar-santos": {
-   "2026-07-30": 105.06
+   "2026-07-30": 105.06,
+   "2026-07-31": 106.29
   },
   "cepea-acucar-al": {
    "2026-07-01": 128.33
