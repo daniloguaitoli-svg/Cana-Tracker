@@ -1,0 +1,71 @@
+# WORKFLOW TEMPORÁRIO DE SONDAGEM.
+#
+# O cepea.org.br responde 403 (desafio da Cloudflare) quando chamado a partir das
+# funções da Vercel, em qualquer região. Antes de montar uma coleta agendada aqui
+# no GitHub Actions, esta sonda responde a única pergunta que importa: o IP do
+# runner do GitHub consegue acessar o widget do CEPEA?
+#
+# Ela grava o resultado em probe-cepea.json e commita de volta no repositório.
+# REMOVER (junto com o probe-cepea.json) depois da resposta.
+
+name: Sonda CEPEA
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sondar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Testar acesso ao CEPEA a partir do runner
+        run: |
+          cat > /tmp/sonda.mjs <<'JS'
+          const UA = {
+            "User-Agent":
+              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36",
+            "Accept-Language": "pt-BR,pt;q=0.9",
+          };
+          const alvos = [
+            ["cepea-widget-etanol-sp", "https://www.cepea.org.br/br/widgetproduto.js.php?fonte=etanol&id_indicador%5B%5D=103"],
+            ["cepea-widget-acucar-sp", "https://www.cepea.org.br/br/widgetproduto.js.php?fonte=acucar&id_indicador%5B%5D=53"],
+            ["cepea-home", "https://www.cepea.org.br/br"],
+            ["noticiasagricolas (controle)", "https://www.noticiasagricolas.com.br/cotacoes/sucroenergetico"],
+          ];
+          const testes = [];
+          for (const [nome, url] of alvos) {
+            const t0 = Date.now();
+            try {
+              const r = await fetch(url, { headers: UA, redirect: "follow" });
+              const corpo = await r.text();
+              testes.push({
+                nome,
+                ok: r.ok,
+                status: r.status,
+                ms: Date.now() - t0,
+                tamanho: corpo.length,
+                servidor: r.headers.get("server"),
+                inicio: corpo.slice(0, 140).replace(/\s+/g, " "),
+              });
+            } catch (e) {
+              testes.push({ nome, ok: false, ms: Date.now() - t0, erro: `${e.name}: ${e.message}` });
+            }
+          }
+          console.log(JSON.stringify({ ambiente: "github-actions", agora: new Date().toISOString(), testes }, null, 1));
+          JS
+          node /tmp/sonda.mjs > probe-cepea.json
+          cat probe-cepea.json
+
+      - name: Commitar o resultado
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add probe-cepea.json
+          git diff --staged --quiet || git commit -m "Sonda: acesso ao CEPEA a partir do runner do GitHub"
+          git push
