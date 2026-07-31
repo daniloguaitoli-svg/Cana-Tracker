@@ -35,7 +35,7 @@ Reúne, a partir de **fontes públicas e gratuitas**:
 | Dado | Fonte |
 |------|-------|
 | CEPEA etanol/açúcar, futuros NY/B3/CME, preço do ATR, cana básica PR | [Notícias Agrícolas](https://www.noticiasagricolas.com.br/cotacoes/sucroenergetico) (que republica CEPEA/ESALQ, CONSECANA, ICE, B3 e CME) |
-| Indicadores regionais e reforço dos indicadores CEPEA | Widget público do [CEPEA](https://www.cepea.org.br) |
+| Indicadores regionais e reforço dos indicadores CEPEA | Widget público do [CEPEA](https://www.cepea.org.br), lido ao vivo no seu computador e por coleta agendada (GitHub Actions) em produção |
 | Histórico do açúcar de Nova York e do petróleo Brent | Yahoo Finance (`SB=F`, `BZ=F`) |
 | Câmbio USD/BRL e EUR/BRL | [Banco Central do Brasil (PTAX/SGS)](https://dadosabertos.bcb.gov.br) |
 | Clima (chuva por região) | [Open-Meteo](https://open-meteo.com) (Archive API, sem chave) |
@@ -97,7 +97,20 @@ public/         manifest e service worker (PWA)
   câmbio (BCB). Para os indicadores CEPEA de etanol e açúcar, o futuro da B3 e o
   preço do ATR **não há API gratuita de série histórica**, então o app guarda um
   **snapshot por dia** e o gráfico desses indicadores **cresce com o tempo**
-  (começa curto). Na Vercel esses snapshots ficam em `/tmp` (efêmero).
+  (começa curto). Rodando local, esses snapshots ficam em `data/snapshots.json`;
+  na Vercel ficam em `/tmp`, que é apagado a cada cold start. A exceção são os
+  indicadores do CEPEA, cuja série é acumulada no repositório pelo job de coleta
+  (ver abaixo) e por isso **persiste**.
+- **O site do CEPEA bloqueia servidores.** O `cepea.org.br` está atrás de um
+  desafio anti-bot da Cloudflare que responde **403** às funções da Vercel (testado
+  em `iad1` e `gru1`, com qualquer User-Agent), mas responde normalmente a partir
+  dos runners do GitHub. Por isso o workflow `.github/workflows/coletar-cepea.yml`
+  roda duas vezes por dia, coleta os 16 indicadores e versiona o resultado em
+  `server/cepea-cache.json`; o app lê a fonte ao vivo em desenvolvimento e cai
+  nesse arquivo em produção (a tela do indicador avisa quando o valor veio do
+  cache). Cada coleta que muda o arquivo gera um commit do bot, que dispara um
+  novo deploy na Vercel. Se o repositório ficar 60 dias sem atividade, o GitHub
+  suspende workflows agendados — basta reativar na aba Actions.
 - **Periodicidades diferentes**: o etanol do CEPEA é **semanal**, o preço do ATR é
   **mensal** e as bolsas são **diárias**. O app leva isso em conta antes de marcar
   um preço como desatualizado — e mostra a periodicidade na tela do indicador.

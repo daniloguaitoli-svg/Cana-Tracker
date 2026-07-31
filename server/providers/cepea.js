@@ -10,6 +10,7 @@
 // "Açúcar - SP sc de 50kg", "Etanol Hidratado - MT m3"), então a unidade é lida
 // dali — assim uma mudança de unidade na fonte não passa despercebida.
 
+import { createRequire } from "node:module";
 import { parseNumBR } from "../util.js";
 
 const UA = { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" };
@@ -48,4 +49,53 @@ export async function widgetCepea(id, fonte = "acucar") {
   const dado = { valor, data, produto, unidade: unidadeDoProduto(produto), variacaoPct: null };
   cache.set(id, { ts: Date.now(), dado });
   return dado;
+}
+
+// ---------------------------------------------------------------------------
+// Cache versionado (server/cepea-cache.json), alimentado pelo GitHub Actions.
+//
+// O cepea.org.br fica atrás de um desafio anti-bot da Cloudflare que barra as
+// funções da Vercel (403 em qualquer região), mas responde normalmente a partir
+// dos runners do GitHub. Por isso um job agendado coleta os indicadores e
+// versiona o resultado no repositório: em desenvolvimento o app lê a fonte ao
+// vivo, e em produção cai neste arquivo.
+// `require` estático (não fs) para que o rastreador de arquivos da Vercel
+// inclua o JSON no pacote da função.
+const require = createRequire(import.meta.url);
+let versionado = null;
+
+function lerVersionado() {
+  if (versionado) return versionado;
+  try {
+    versionado = require("../cepea-cache.json");
+  } catch {
+    versionado = { atualizadoEm: null, indicadores: {}, historico: {} };
+  }
+  versionado.indicadores ??= {};
+  versionado.historico ??= {};
+  return versionado;
+}
+
+// Indicador ao vivo, com queda para o cache versionado.
+export async function widgetOuCache(slug, id, fonte = "acucar") {
+  try {
+    return { ...(await widgetCepea(id, fonte)), viaCache: false };
+  } catch (e) {
+    const guardado = lerVersionado().indicadores[slug];
+    if (!guardado) throw e;
+    return { ...guardado, variacaoPct: null, viaCache: true };
+  }
+}
+
+// Série [{date, close}] acumulada pelo job — o único histórico desses
+// indicadores que sobrevive a um cold start da Vercel.
+export function historicoVersionado(slug) {
+  const h = lerVersionado().historico[slug] || {};
+  return Object.entries(h)
+    .map(([date, close]) => ({ date, close }))
+    .sort((a, b) => (a.date < b.date ? -1 : 1));
+}
+
+export function cacheAtualizadoEm() {
+  return lerVersionado().atualizadoEm;
 }

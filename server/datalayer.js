@@ -14,7 +14,7 @@ import { CATEGORIAS, porSlug, SO_WIDGET, LIMITE_DIAS_UTEIS } from "./catalogo.js
 import { lerNoticiasAgricolas } from "./providers/noticiasagricolas.js";
 import { usdbrl as getUsdbrl, getCambio as getCambioBCB, serieUSD } from "./providers/bcb.js";
 import { historicoIndicador, historicoAuxiliar, SIMBOLOS } from "./providers/yahoo.js";
-import { widgetCepea } from "./providers/cepea.js";
+import { widgetOuCache, historicoVersionado, cacheAtualizadoEm } from "./providers/cepea.js";
 import { getClima as getClimaOM } from "./providers/openmeteo.js";
 import { registrar, serieSnapshots } from "./store.js";
 import {
@@ -134,6 +134,9 @@ function itemIndicador(slug, dado, usd) {
       valor: arred(dado.valor, casasDaUnidade(unidade)),
       variacaoPct: arred(dado.variacaoPct),
       fonte: cat.fonte,
+      // Em produção o CEPEA bloqueia o servidor; o valor vem então do cache
+      // versionado no repositório, coletado algumas vezes por dia.
+      viaCache: dado.viaCache === true,
       bloomberg: cat.bloomberg,
       descricao: cat.descricao,
       ...derivados({ valor: dado.valor, unidade, produto: cat.produto, usd }),
@@ -217,9 +220,10 @@ export async function getCotacoes() {
     const cat = porSlug[slug];
     let dado = na?.indicadores?.[slug] || null;
     if (!dado && cat.cepeaId) {
-      // Reforço: se a página falhar, o widget do CEPEA salva os números-cabeça.
+      // Reforço: se a página falhar, o CEPEA (ao vivo ou do cache versionado)
+      // salva os números-cabeça.
       try {
-        dado = await widgetCepea(cat.cepeaId, "etanol");
+        dado = await widgetOuCache(slug, cat.cepeaId);
       } catch {
         dado = null;
       }
@@ -232,7 +236,7 @@ export async function getCotacoes() {
   // ---- Indicadores que só existem no widget do CEPEA (regionais) ----
   const etanolRegional = [];
   const widgetItens = await Promise.allSettled(
-    SO_WIDGET.map(async (cat) => itemIndicador(cat.slug, await widgetCepea(cat.cepeaId, "etanol"), usd))
+    SO_WIDGET.map(async (cat) => itemIndicador(cat.slug, await widgetOuCache(cat.slug, cat.cepeaId), usd))
   );
   for (const r of widgetItens) {
     const it = r.status === "fulfilled" ? r.value : null;
@@ -354,6 +358,7 @@ export async function getCotacoes() {
   return {
     fetchedAt: na?.fetchedAt || new Date().toISOString(),
     cambio,
+    cepeaCacheEm: cacheAtualizadoEm(),
     atrPadrao: ATR_PADRAO,
     coeficientes: {
       acucar: ATR_POR_KG_ACUCAR,
@@ -363,6 +368,18 @@ export async function getCotacoes() {
     categorias,
     aviso: AVISO,
   };
+}
+
+// Série de um indicador sem histórico gratuito: junta os snapshots locais com a
+// série que o job do GitHub Actions acumula no repositório (esta última é a
+// única que sobrevive a um cold start da Vercel, onde o /tmp é apagado).
+async function serieCompleta(slug) {
+  const porData = new Map();
+  for (const p of historicoVersionado(slug)) porData.set(p.date, p.close);
+  for (const p of await serieSnapshots(slug)) porData.set(p.date, p.close);
+  return [...porData.entries()]
+    .map(([date, close]) => ({ date, close }))
+    .sort((a, b) => (a.date < b.date ? -1 : 1));
 }
 
 // Estatísticas simples de uma série [{date, close}].
@@ -395,10 +412,10 @@ export async function getDetalhe(slug, tf = "3M") {
       notaHistorico = "Histórico do Yahoo indisponível; usando snapshots locais.";
     }
   } else {
-    pontos = await serieSnapshots(slug);
+    pontos = await serieCompleta(slug);
     if (pontos.length < 2) {
       notaHistorico =
-        "Não existe série histórica gratuita para este indicador — o gráfico é construído a partir dos snapshots diários e cresce com o uso do app.";
+        "Não existe série histórica gratuita para este indicador — o gráfico é construído a partir das coletas diárias e cresce com o tempo.";
     }
   }
 
@@ -452,11 +469,11 @@ export async function getMercado() {
   const get = (slug) => itens.find((i) => i.slug === slug);
 
   const [acucarHist, hidratadoHist, anidroHist, b3Hist, atrHist] = await Promise.all([
-    serieSnapshots("cepea-acucar-sp").catch(() => []),
-    serieSnapshots("cepea-hidratado-sp").catch(() => []),
-    serieSnapshots("cepea-anidro-sp").catch(() => []),
-    serieSnapshots("b3-etanol").catch(() => []),
-    serieSnapshots("atr-sao-paulo").catch(() => []),
+    serieCompleta("cepea-acucar-sp").catch(() => []),
+    serieCompleta("cepea-hidratado-sp").catch(() => []),
+    serieCompleta("cepea-anidro-sp").catch(() => []),
+    serieCompleta("b3-etanol").catch(() => []),
+    serieCompleta("atr-sao-paulo").catch(() => []),
   ]);
 
   const ny = get("ny-acucar");
