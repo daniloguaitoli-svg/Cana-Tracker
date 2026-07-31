@@ -1,0 +1,25 @@
+{
+  "name": "Cana & Etanol Tracker — Setor sucroenergético",
+  "short_name": "Cana & Etanol",
+  "description": "Preço do ATR (CONSECANA), indicadores CEPEA de etanol e açúcar, futuros da B3, Nova York e Chicago, e a paridade açúcar × etanol.",
+  "lang": "pt-BR",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0d0c07",
+  "theme_color": "#0d0c07",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='36' fill='%230d0c07'/%3E%3Ctext x='96' y='128' font-size='120' text-anchor='middle'%3E%F0%9F%8E%8B%3C/text%3E%3C/svg%3E",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='96' fill='%230d0c07'/%3E%3Ctext x='256' y='340' font-size='320' text-anchor='middle'%3E%F0%9F%8E%8B%3C/text%3E%3C/svg%3E",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
