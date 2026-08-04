@@ -1,5 +1,5 @@
 {
- "atualizadoEm": "2026-08-04T13:59:04.057Z",
+ "atualizadoEm": "2026-08-04T22:07:48.349Z",
  "indicadores": {
   "cepea-hidratado-sp": {
    "valor": 2.0454,
@@ -68,14 +68,14 @@
    "unidade": "BRL_LITRO"
   },
   "cepea-acucar-sp": {
-   "valor": 90.82,
-   "data": "03/08/2026",
+   "valor": 91.89,
+   "data": "04/08/2026",
    "produto": "Açúcar - SP sc de 50kg",
    "unidade": "BRL_SACA50"
   },
   "cepea-acucar-santos": {
-   "valor": 108.34,
-   "data": "03/08/2026",
+   "valor": 108.76,
+   "data": "04/08/2026",
    "produto": "Açúcar - Santos sc de 50kg",
    "unidade": "BRL_SACA50"
   },
@@ -140,12 +140,14 @@
   "cepea-acucar-sp": {
    "2026-07-30": 92.4,
    "2026-07-31": 91.5,
-   "2026-08-03": 90.82
+   "2026-08-03": 90.82,
+   "2026-08-04": 91.89
   },
   "cepea-acucar-santos": {
    "2026-07-30": 105.06,
    "2026-07-31": 106.29,
-   "2026-08-03": 108.34
+   "2026-08-03": 108.34,
+   "2026-08-04": 108.76
   },
   "cepea-acucar-al": {
    "2026-07-01": 128.33
