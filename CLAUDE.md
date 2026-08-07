@@ -128,7 +128,7 @@ Forgetting the last one means it works in dev and 404s in production.
 | `principal` | feeds the panel's "cotações desatualizadas" warning |
 | `cepeaId`, `viaWidget` | CEPEA widget id; `viaWidget` means the widget is the *only* source |
 | `yahoo` | Yahoo symbol when free history exists |
-| `bloomberg` | optional ticker, reference only — nothing fetches it |
+| `bloomberg` | optional reference ticker — not fetched, but **displayed** as a pill in Detalhe |
 
 `catalogo.js` also exports the derived helpers everything else reads:
 `porSlug` (lookup map), `SO_WIDGET` (the `viaWidget` subset), `LIMITE_DIAS_UTEIS`
