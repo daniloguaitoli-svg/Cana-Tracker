@@ -77,8 +77,16 @@ api/                  Vercel serverless functions: cotacoes, detalhe, cambio, me
 .github/
   workflows/coletar-cepea.yml   scheduled CEPEA collection (12:00 & 21:00 UTC)
   scripts/coletar-cepea.mjs     the collector itself
+.claude/launch.json   dev launch config (npm run dev, port 5173)
 public/               PWA manifest + service worker
 ```
+
+The five tabs in `App.jsx` are `Painel · Cotações · Mercado · Conversor ·
+Alertas`, one component each, and `Detalhe` replaces the whole frame when a slug
+is selected. `App.jsx` loads `getCotacoes()` **once** and passes `dados` down to
+Painel / Cotações / Conversor / Alertas; `Mercado` and `Detalhe` fetch their own
+endpoints. So a new field on the `getCotacoes` payload reaches four screens for
+free, and the footer `aviso` comes from that same payload.
 
 ### The one data path
 
@@ -112,18 +120,32 @@ Forgetting the last one means it works in dev and 404s in production.
 | `slug` | stable id used in `/api` routes, snapshots and the cache — **never rename casually**, it breaks accumulated history |
 | `nome`, `descricao` | pt-BR label and explanatory note shown in the UI |
 | `categoria` | groups it on the Cotações screen (`CATEGORIAS`) |
-| `unidade` | native unit: `BRL_LITRO`, `BRL_M3`, `USD_GALAO`, `BRL_SACA50`, `BRL_5KG`, `BRL_KG`, `USD_CENT_LB`, `BRL_KG_ATR`, `BRL_TON` |
+| `unidade` | native unit: `BRL_LITRO`, `BRL_M3`, `USD_GALAO`, `BRL_SACA50`, `BRL_5KG`, `BRL_KG`, `USD_CENT_LB` |
+| `moeda` | the unit's display label (`"R$/m³"`, `"¢US$/lb"`, …) |
+| `fonte` | attribution string shown in the UI (exchange / CEPEA / via Notícias Agrícolas) |
 | `produto` | `"acucar"` / `"hidratado"` / `"anidro"` — picks the CONSECANA coefficient for the R$/kg-ATR conversion; `null` when it doesn't apply |
 | `periodicidade` | `"diaria"` / `"semanal"` / `"mensal"` — decides when a price counts as stale |
 | `principal` | feeds the panel's "cotações desatualizadas" warning |
 | `cepeaId`, `viaWidget` | CEPEA widget id; `viaWidget` means the widget is the *only* source |
 | `yahoo` | Yahoo symbol when free history exists |
+| `bloomberg` | optional reference ticker — not fetched, but **displayed** as a pill in Detalhe |
 
-To add an indicator: add its catalogue entry, then make sure some provider can
-actually read it (a Notícias Agrícolas table match, a `cepeaId`, or a Yahoo
-symbol). The ATR price per state and Paraná's *cana básica* are **not** in the
-catalogue — they're dynamic rows scraped per-state in
-`providers/noticiasagricolas.js`.
+`catalogo.js` also exports the derived helpers everything else reads:
+`porSlug` (lookup map), `SO_WIDGET` (the `viaWidget` subset), `LIMITE_DIAS_UTEIS`
+(the staleness thresholds) and `ROTULO_PERIODICIDADE` (UI labels). They live
+here, not in `datalayer.js`.
+
+There are currently **22 fixed indicators** across the six `CATEGORIAS`.
+
+To add one: add its catalogue entry, then make sure some provider can actually
+read it (a Notícias Agrícolas table match, a `cepeaId`, or a Yahoo symbol).
+
+**Not everything on screen comes from the catalogue.** The ATR price per state
+and Paraná's *cana básica* are dynamic rows scraped per-state in
+`providers/noticiasagricolas.js`, and the parity and R$/tonne rows are synthesised
+in `datalayer.js`. That's why `BRL_KG_ATR` and `BRL_TON` are valid `unidade`
+values handled throughout `util.js`, `format.js` and the components, yet never
+appear on a catalogue entry — only on rows built at request time.
 
 ### Units and the ATR ruler
 
@@ -139,9 +161,22 @@ CONSECANA-SP coefficients (kg of ATR per unit of product):
 `ATR_POR_L_ANIDRO = 1.7651`; `ATR_PADRAO = 140` kg/t is the default cane ATR
 used to estimate R$/tonne.
 
-**These constants are duplicated in `src/components/Conversor.jsx`** so the
-converter can compute as the user types without a round trip. If you change a
-coefficient in `server/util.js`, change it there too — they must stay in sync.
+**The three coefficients are duplicated in `src/components/Conversor.jsx`** so
+the converter can compute as the user types without a round trip. If you change
+one in `server/util.js`, change it there too — they must stay in sync.
+`ATR_PADRAO` is *not* duplicated: it reaches the converter as `dados.atrPadrao`
+on the `getCotacoes` payload, and the user can override it in the form.
+
+#### Constants duplicated on purpose
+
+The `server/` and `src/` halves never import from each other — the client only
+ever sees JSON from `/api`. So a few values are hand-copied across that line and
+**must be changed in both places**:
+
+| Value | Server | Client |
+|---|---|---|
+| CONSECANA coefficients | `server/util.js` | `src/components/Conversor.jsx` |
+| periodicity labels | `ROTULO_PERIODICIDADE` in `server/catalogo.js` | `PERIODICIDADE` in `src/format.js` |
 
 `parseNumBR` handles pt-BR numbers (`"1.712,39"` → `1712.39`) and returns `null`
 for "s/ cotação", `***`, `-`, etc. `isoDeBR` handles the three date shapes the
@@ -158,7 +193,10 @@ be accumulated:
    (`COM_TF` in `Detalhe.jsx`).
 2. **Local snapshots** (`server/store.js`) — one point per slug per day, written
    on every `getCotacoes()`. Persists to `data/snapshots.json` locally, but on
-   Vercel it lands in `/tmp` and **dies on every cold start**.
+   Vercel (`process.env.VERCEL`) it lands in `/tmp/cana-snapshots.json` and
+   **dies on every cold start**. The local path is anchored to the module's own
+   location, not `process.cwd()`, so it doesn't matter who starts the server;
+   writes are best-effort and swallow errors on a read-only filesystem.
 3. **Versioned CEPEA cache** (`server/cepea-cache.json`) — written by the
    scheduled GitHub Actions job. This is the **only** history for the CEPEA
    indicators that survives, because it lives in the repo.
@@ -211,16 +249,23 @@ panel warning.
   exists, why `/tmp` is ephemeral, why the watcher ignores `data/`). Match that
   density — it's the house style.
 - **Numbers go through `src/format.js`** (`num`, `preco`, `reais`, `pct`,
-  `sinal`, `dataBR`, `dataCurtaBR`, `casasDaUnidade`) and render with the mono
-  class. Prices in R$/litro and R$/kg de ATR need **4 decimals** — that's what
-  `casasDaUnidade` decides. `Intl` locale is `pt-BR`; times use
+  `sinal`, `dataBR`, `dataCurtaBR`, `horaBR`, `casasDaUnidade`) and render with
+  the mono class. Prices in R$/litro and R$/kg de ATR need **4 decimals** —
+  that's what `casasDaUnidade` decides. `Intl` locale is `pt-BR`; times use
   `America/Sao_Paulo`.
-- **Design tokens only** — the custom properties at the top of `src/styles.css`
-  (`--bg`, `--surface`, `--line`, `--muted`, `--up`, `--down`, `--accent`,
-  `--s1`…`--s7`). No hard-coded hexes or pixel gaps in components. Amber
-  `--accent` is for the active tab and focus.
-- **Loading / error states** come from `components/States.jsx` (`Loading`,
-  `Skeletons`, `ErroBox`). Extend those rather than hand-rolling.
+- **Design tokens only** — the custom properties at the top of `src/styles.css`.
+  No hard-coded hexes or pixel gaps in components.
+  - surfaces `--bg` `--surface` `--surface-2` `--line`
+  - text `--text` `--muted`
+  - semantics `--up` `--down` `--accent` `--accent-2`
+  - type `--display` (Space Grotesk) `--ui` (Inter) `--mono` (IBM Plex Mono)
+  - layout `--s1`…`--s7` (4→48px) `--radius` `--maxw`
+
+  Amber `--accent` is for the active tab and focus. The `body` background is a
+  radial gradient over `--bg`, not a flat fill — keep that when touching layout.
+- **Loading / error / empty states** come from `components/States.jsx`
+  (`Loading`, `Skeletons`, `ErroBox`, `Vazio`). Extend those rather than
+  hand-rolling.
 - **Server does the maths; components display.** Conversions, parity, staleness
   and statistics belong in `server/util.js` / `server/datalayer.js`. The one
   deliberate exception is the Conversor's live client-side arithmetic.
@@ -259,12 +304,25 @@ data supports.
 ## Deployment notes
 
 - `api/*.js` are Vercel functions: `export default async function handler(req, res)`,
-  params off `req.query`, `Cache-Control: s-maxage=600, stale-while-revalidate=3600`,
-  400 on a missing param, 502 on upstream failure. Keep them thin.
-- `src/main.jsx` registers the service worker in production, checks for updates
-  hourly, and reloads **once** when a new version installs over an existing
-  controller — so users of the installed PWA pick up deploys automatically.
-- Alerts are stored per device in `localStorage` under `cana-tracker-alertas`.
+  params off `req.query`, 400 on a missing param, 502 on upstream failure. Keep
+  them thin. Cache windows follow how fast the data actually moves:
+  `cotacoes`, `detalhe`, `cambio` and `mercado` use
+  `s-maxage=600, stale-while-revalidate=3600`; `clima` uses
+  `s-maxage=21600, stale-while-revalidate=86400` (6 h / 24 h) because rainfall
+  updates daily at best. Copy the neighbour that resembles your endpoint.
+- `getDetalhe(slug, tf)` defaults to `tf = "3M"` in both the datalayer and the
+  Detalhe screen. Only `ny-acucar` honours the timeframe switch (`COM_TF`).
+- The service worker (`public/sw.js`) is **network-first for navigation** (always
+  fetch the fresh `index.html`, fall back to cache only offline), **cache-first
+  for hashed `/assets/*`** (immutable, the filename changes each build), and
+  never caches `/api/*`. Note the naming is the inverse of the sibling ETF
+  Tracker: here `CACHE` is the version string to bump (`"cana-tracker-v1"`) and
+  `SHELL` is the list of precached paths.
+- `src/main.jsx` registers that worker in production, checks for updates hourly,
+  and reloads **once** when a new version installs over an existing controller —
+  so users of the installed PWA pick up deploys automatically.
+- Alerts are stored per device in `localStorage` under `cana-tracker-alertas`,
+  read/written directly in `components/Alertas.jsx` (no store module).
 - A broken change fails the Vercel build and the previous deploy stays live;
   `npm run build` locally is still the right pre-push check.
 
