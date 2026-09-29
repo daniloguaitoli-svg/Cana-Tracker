@@ -1,5 +1,7 @@
 # 🎋 Cana & Etanol Tracker — Preços do setor sucroenergético
 
+**App no ar:** [cana-tracker.vercel.app](https://cana-tracker.vercel.app)
+
 App web (PWA) para acompanhar o preço da **cana-de-açúcar** e do **etanol** no
 Brasil, todo em português. Espelha a arquitetura do Soja Tracker / Café Tracker /
 ETF Tracker.
